@@ -28,11 +28,14 @@ type Package struct {
 	Examples   []Example
 }
 
-// Symbol is one exported declaration: its printed signature and its comment.
+// Symbol is one exported declaration: its printed signature, its comment,
+// and where it is written (the file relative to the module root, the line).
 type Symbol struct {
 	Name string
 	Sig  string // the declaration as printed, bodies stripped
 	Doc  string
+	File string
+	Line int
 }
 
 // Type is an exported type with the functions and methods that belong to it.
@@ -42,7 +45,8 @@ type Type struct {
 	Methods []Symbol
 }
 
-// Example is one Example function: what it shows, its code, its output.
+// Example is one Example function: what it shows, its code, its output,
+// and where it is written.
 type Example struct {
 	Name   string // the example's full name (ExampleRun_backup)
 	For    string // the symbol it documents ("" = the package)
@@ -50,6 +54,8 @@ type Example struct {
 	Doc    string
 	Code   string
 	Output string
+	File   string
+	Line   int
 }
 
 // Packages reads every package under root (the module's directory):
@@ -142,24 +148,33 @@ func readPackage(dir, rel, modPath string) (Package, bool, error) {
 		_ = printer.Fprint(&b, fset, node)
 		return b.String()
 	}
+	// where a node is written: the file relative to the module root
+	at := func(pos token.Pos) (string, int) {
+		p := fset.Position(pos)
+		return filepath.ToSlash(filepath.Join(rel, filepath.Base(p.Filename))), p.Line
+	}
 	// a grouped declaration is headed by its first name (the block prints
 	// them all — cobra's twelve-name const heading was unreadable)
 	for _, v := range dp.Consts {
-		pkg.Consts = append(pkg.Consts, Symbol{Name: v.Names[0], Sig: sig(v.Decl), Doc: v.Doc})
+		file, line := at(v.Decl.Pos())
+		pkg.Consts = append(pkg.Consts, Symbol{Name: v.Names[0], Sig: sig(v.Decl), Doc: v.Doc, File: file, Line: line})
 	}
 	for _, v := range dp.Vars {
-		pkg.Vars = append(pkg.Vars, Symbol{Name: v.Names[0], Sig: sig(v.Decl), Doc: v.Doc})
+		file, line := at(v.Decl.Pos())
+		pkg.Vars = append(pkg.Vars, Symbol{Name: v.Names[0], Sig: sig(v.Decl), Doc: v.Doc, File: file, Line: line})
 	}
 	funcSig := func(f *doc.Func) Symbol {
 		decl := *f.Decl
 		decl.Body = nil
 		decl.Doc = nil
-		return Symbol{Name: f.Name, Sig: sig(&decl), Doc: f.Doc}
+		file, line := at(f.Decl.Pos())
+		return Symbol{Name: f.Name, Sig: sig(&decl), Doc: f.Doc, File: file, Line: line}
 	}
 	for _, t := range dp.Types {
 		decl := *t.Decl
 		decl.Doc = nil
-		ty := Type{Symbol: Symbol{Name: t.Name, Sig: sig(&decl), Doc: t.Doc}}
+		file, line := at(t.Decl.Pos())
+		ty := Type{Symbol: Symbol{Name: t.Name, Sig: sig(&decl), Doc: t.Doc, File: file, Line: line}}
 		for _, f := range t.Funcs {
 			ty.Funcs = append(ty.Funcs, funcSig(f))
 		}
@@ -179,7 +194,8 @@ func readPackage(dir, rel, modPath string) (Package, bool, error) {
 			_ = printer.Fprint(&b, fset, ex.Code)
 		}
 		for_, suffix := splitExample(ex.Name)
-		pkg.Examples = append(pkg.Examples, Example{Name: "Example" + suffixName(ex.Name), For: for_, Suffix: suffix, Doc: ex.Doc, Code: trimBlock(b.String()), Output: strings.TrimSpace(ex.Output)})
+		file, line := at(ex.Code.Pos())
+		pkg.Examples = append(pkg.Examples, Example{Name: "Example" + suffixName(ex.Name), For: for_, Suffix: suffix, Doc: ex.Doc, Code: trimBlock(b.String()), Output: strings.TrimSpace(ex.Output), File: file, Line: line})
 	}
 	return pkg, true, nil
 }

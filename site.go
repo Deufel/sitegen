@@ -23,7 +23,8 @@ type Config struct {
 	Out     string // the site's directory (created; index.html and the pages)
 	Title   string // the site's name; the module's last path element when empty
 	Tagline string // a few words under the title
-	Repo    string // the repository URL, linked from the header
+	Repo    string // the repository URL, linked from the header; with Ref, every symbol links to its source line
+	Ref     string // the branch, tag or commit the source links point at; "HEAD" when empty
 	Guide   string // the markdown pages' directory relative to Root; "guide" when empty; absent is fine
 	// Theme is the engine stylesheet's URL; the pinned system.css tag when
 	// empty. Highlight is its syntax companion ("" = the tag's).
@@ -44,6 +45,7 @@ type Page struct {
 	Section string // "" (home) · "guide" · "pkg"
 	Order   int
 	Body    string // the rendered HTML inside the measure
+	Index   string // the page's own index for the n3 rail: a package's symbols by kind, a markdown page's headings
 }
 
 // Site is what Build wrote.
@@ -83,6 +85,9 @@ func Build(cfg Config) (Site, error) {
 	if cfg.HighlightJS == "" {
 		cfg.HighlightJS = DefaultHighlightJS
 	}
+	if cfg.Ref == "" {
+		cfg.Ref = "HEAD"
+	}
 	pkgs, err := Packages(cfg.Root)
 	if err != nil {
 		return Site{}, err
@@ -107,12 +112,15 @@ func Build(cfg Config) (Site, error) {
 	}
 	pages = append(pages, guide...)
 	for _, p := range pkgs {
-		pages = append(pages, packagePage(p))
+		pages = append(pages, packagePage(cfg, p))
 	}
 	if err := os.MkdirAll(cfg.Out, 0o755); err != nil {
 		return Site{}, err
 	}
 	for i := range pages {
+		if pages[i].Index == "" {
+			pages[i].Index = headingIndex(pages[i].Body)
+		}
 		out := filepath.Join(cfg.Out, filepath.FromSlash(pages[i].Path))
 		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return Site{}, err
@@ -203,37 +211,61 @@ func guidePages(dir string) ([]Page, error) {
 }
 
 // packagePage — one page per package: the overview, the API by kind, the
-// examples. Every symbol is an h3 with the printed declaration and its
-// comment; the aside lists the h2 sections.
-func packagePage(p Package) Page {
+// examples. Every symbol is an h3 with the printed declaration, its
+// comment and, when the repository is known, a link to the line it is
+// written on; the aside lists the h2 sections.
+func packagePage(cfg Config, p Package) Page {
 	var b strings.Builder
 	b.WriteString(`<p><code>import "` + htmlesc.EscapeString(p.ImportPath) + `"</code></p>`)
 	b.WriteString(`<h2 id="overview">Overview</h2>` + DocHTML(p.Doc))
+	source := func(file string, line int) string {
+		if cfg.Repo == "" || file == "" {
+			return ""
+		}
+		u := strings.TrimRight(cfg.Repo, "/") + "/blob/" + cfg.Ref + "/" + file + "#L" + strconv.Itoa(line)
+		return `<a class="icon" href="` + htmlesc.EscapeString(u) + `" aria-label="Source" title="` + htmlesc.EscapeString(file+":"+strconv.Itoa(line)) + `" style="--type: -1; --fg: -0.55;">` + iconCode + `</a>`
+	}
+	head := func(id, title, src string) {
+		b.WriteString(`<h3 id="` + htmlesc.EscapeString(id) + `" class="spread">` + htmlesc.EscapeString(title) + src + `</h3>`)
+	}
+	var ix strings.Builder
+	ixHead := func(id, label string) {
+		ix.WriteString(`<a class="nav-item" href="#` + id + `" style="margin-block-start: 0.5lh;"><span class="rail-head">` + label + `</span></a>`)
+	}
+	ixItem := func(id, label string) {
+		ix.WriteString(`<a class="nav-item" href="#` + htmlesc.EscapeString(id) + `"><span>` + htmlesc.EscapeString(label) + `</span></a>`)
+	}
 	sym := func(s Symbol) {
-		b.WriteString(`<h3 id="` + htmlesc.EscapeString(anchor(s.Name)) + `">` + htmlesc.EscapeString(s.Name) + `</h3>`)
+		head(anchor(s.Name), s.Name, source(s.File, s.Line))
+		ixItem(anchor(s.Name), s.Name)
 		b.WriteString(`<pre><code class="go">` + htmlesc.EscapeString(s.Sig) + `</code></pre>`)
 		b.WriteString(DocHTML(s.Doc))
 	}
+	ixHead("overview", "Overview")
 	if len(p.Consts) > 0 {
 		b.WriteString(`<h2 id="constants">Constants</h2>`)
+		ixHead("constants", "Constants")
 		for _, s := range p.Consts {
 			sym(s)
 		}
 	}
 	if len(p.Vars) > 0 {
 		b.WriteString(`<h2 id="variables">Variables</h2>`)
+		ixHead("variables", "Variables")
 		for _, s := range p.Vars {
 			sym(s)
 		}
 	}
 	if len(p.Funcs) > 0 {
 		b.WriteString(`<h2 id="functions">Functions</h2>`)
+		ixHead("functions", "Functions")
 		for _, s := range p.Funcs {
 			sym(s)
 		}
 	}
 	if len(p.Types) > 0 {
 		b.WriteString(`<h2 id="types">Types</h2>`)
+		ixHead("types", "Types")
 		for _, t := range p.Types {
 			sym(t.Symbol)
 			for _, f := range t.Funcs {
@@ -247,6 +279,7 @@ func packagePage(p Package) Page {
 	}
 	if len(p.Examples) > 0 {
 		b.WriteString(`<h2 id="examples">Examples</h2>`)
+		ixHead("examples", "Examples")
 		for _, ex := range p.Examples {
 			title := ex.For
 			if title == "" {
@@ -255,7 +288,8 @@ func packagePage(p Package) Page {
 			if ex.Suffix != "" {
 				title += " — " + ex.Suffix
 			}
-			b.WriteString(`<h3 id="` + htmlesc.EscapeString(anchor(ex.Name)) + `">` + htmlesc.EscapeString(title) + `</h3>`)
+			head(anchor(ex.Name), title, source(ex.File, ex.Line))
+			ixItem(anchor(ex.Name), title)
 			if ex.Doc != "" {
 				b.WriteString(DocHTML(ex.Doc))
 			}
@@ -275,7 +309,7 @@ func packagePage(p Package) Page {
 	if p.Dir != "" {
 		title = filepath.ToSlash(p.Dir)
 	}
-	return Page{Path: path + ".html", Title: title, Section: "pkg", Body: b.String()}
+	return Page{Path: path + ".html", Title: title, Section: "pkg", Body: b.String(), Index: ix.String()}
 }
 
 func anchor(name string) string {
@@ -296,18 +330,17 @@ func blocks(body string) string {
 var h2html = regexp.MustCompile(`<h2 id="([^"]+)">(.+?)</h2>`)
 var tagRe = regexp.MustCompile(`<[^>]+>`)
 
-// toc — the page's h2 list, when it has three or more.
-func toc(body string) string {
+// headingIndex — a markdown page's h2 list as its index, when it has two
+// or more.
+func headingIndex(body string) string {
 	ms := h2html.FindAllStringSubmatch(body, -1)
-	if len(ms) < 3 {
+	if len(ms) < 2 {
 		return ""
 	}
 	var sb strings.Builder
-	sb.WriteString(`<nav class="toc column" aria-label="On this page" style="--gap: 0; --type: -1;"><small class="rail-head">On this page</small>`)
 	for _, m := range ms {
-		sb.WriteString(`<a href="#` + m[1] + `">` + tagRe.ReplaceAllString(m[2], "") + `</a>`)
+		sb.WriteString(`<a class="nav-item" href="#` + m[1] + `"><span>` + tagRe.ReplaceAllString(m[2], "") + `</span></a>`)
 	}
-	sb.WriteString(`</nav>`)
 	return sb.String()
 }
 
@@ -322,13 +355,24 @@ func navItem(link, label string, current bool) string {
 	if current {
 		aria = ` aria-current="page"`
 	}
-	return `<a class="nav-item" href="` + link + `"` + aria + `><span class="medium large">` + htmlesc.EscapeString(label) + `</span></a>`
+	return `<a class="nav-item" href="` + link + `"` + aria + `><span>` + htmlesc.EscapeString(label) + `</span></a>`
 }
 
-// shell — the engine's page grid around one page: the header, the rail
-// of sections (Home · Guide · Packages), the page's own rail when its
-// section has more than one page, the measure, the aside, previous and
-// next.
+// Lucide glyphs, drawn inline: the shell ships no icon file.
+const (
+	iconMenu   = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/></svg>`
+	iconSun    = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`
+	iconMoon   = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`
+	iconGitHub = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>`
+	iconCode   = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg>`
+)
+
+// shell — the engine's page grid around one page: the header (the menu
+// on a phone, the title, the theme toggle, the source link), ONE
+// navigation of every page — Home, the guide, the packages — as a rail
+// on wide screens and a left drawer on a phone, the page's own index on
+// the n3 rail (a package's symbols by kind, a markdown page's headings),
+// the measure, previous and next.
 func shell(cfg Config, pages []Page, pg *Page) string {
 	root := strings.Repeat("../", strings.Count(pg.Path, "/"))
 	var siblings []*Page
@@ -337,38 +381,35 @@ func shell(cfg Config, pages []Page, pg *Page) string {
 			siblings = append(siblings, &pages[i])
 		}
 	}
-	first := func(section string) *Page {
-		for i := range pages {
-			if pages[i].Section == section {
-				return &pages[i]
-			}
-		}
-		return nil
-	}
+	// the one navigation, grouped: Home · Guide · Packages
 	var nav strings.Builder
+	nav.WriteString(`<div class="column" style="--gap: 0.1lh;">`)
 	nav.WriteString(navItem(root+"index.html", "Home", pg.Section == ""))
 	for _, s := range [][2]string{{"guide", "Guide"}, {"pkg", "Packages"}} {
-		if f := first(s[0]); f != nil {
-			nav.WriteString(navItem(href(pg.Path, f.Path), s[1], pg.Section == s[0]))
+		var group []Page
+		for _, p := range pages {
+			if p.Section == s[0] {
+				group = append(group, p)
+			}
+		}
+		if len(group) == 0 {
+			continue
+		}
+		nav.WriteString(`<small class="rail-head medium large" style="margin-block-start: 0.5lh;">` + s[1] + `</small>`)
+		for _, p := range group {
+			nav.WriteString(navItem(href(pg.Path, p.Path), p.Title, p.Path == pg.Path))
 		}
 	}
-	var rail strings.Builder
-	if len(siblings) > 1 {
-		label := map[string]string{"guide": "Guide", "pkg": "Packages"}[pg.Section]
-		rail.WriteString(`<nav class="pg-toolbar spread-column tablet desktop" aria-label="` + label + `"><div class="column" style="--gap: 0.1lh;"><small class="rail-head medium large">` + label + `</small>`)
-		for _, p := range siblings {
-			rail.WriteString(navItem(href(pg.Path, p.Path), p.Title, p == pg))
-		}
-		rail.WriteString(`</div></nav>`)
-	}
+	nav.WriteString(`</div>`)
 	crumbs := `<nav class="crumbs" aria-label="Breadcrumb"><a href="` + root + `index.html">` + htmlesc.EscapeString(cfg.Title) + `</a>`
-	if f := first(pg.Section); f != nil && pg.Section != "" {
-		crumbs += `<a href="` + href(pg.Path, f.Path) + `">` + map[string]string{"guide": "Guide", "pkg": "Packages"}[pg.Section] + `</a>`
+	if pg.Section != "" {
+		crumbs += `<span>` + map[string]string{"guide": "Guide", "pkg": "Packages"}[pg.Section] + `</span>`
 	}
 	crumbs += `</nav>`
-	aside := ""
-	if t := toc(pg.Body); t != "" {
-		aside = `<aside class="pg-aside desktop">` + t + `</aside>`
+	// the n3 rail: the page's own index
+	index := ""
+	if pg.Index != "" {
+		index = `<nav class="pg-toolbar spread-column tablet desktop" aria-label="On this page" style="--type: -1;"><div class="column" style="--gap: 0.1lh;">` + pg.Index + `</div></nav>`
 	}
 	foot := ""
 	for i, p := range siblings {
@@ -388,12 +429,15 @@ func shell(cfg Config, pages []Page, pg *Page) string {
 	}
 	repo := ""
 	if cfg.Repo != "" {
-		repo = `<a href="` + htmlesc.EscapeString(cfg.Repo) + `" style="--type: -1;">Source</a>`
+		repo = `<a class="icon" href="` + htmlesc.EscapeString(cfg.Repo) + `" aria-label="Source on GitHub" title="Source on GitHub">` + iconGitHub + `</a>`
 	}
 	tagline := ""
 	if cfg.Tagline != "" {
-		tagline = `<small style="--fg: -0.55;">` + htmlesc.EscapeString(cfg.Tagline) + `</small>`
+		tagline = `<small class="tablet desktop" style="--fg: -0.55;">` + htmlesc.EscapeString(cfg.Tagline) + `</small>`
 	}
+	// the theme toggle: light ↔ dark on the root, remembered in storage
+	// under the engine site's own key; the glyph shows what a tap gives
+	theme := `<button type="button" class="icon" aria-label="Theme" title="Light or dark" onclick="toggleTheme()"><span class="to-dark">` + iconMoon + `</span><span class="to-light">` + iconSun + `</span></button>`
 	return `<!doctype html>
 <html lang="en">
 <head>
@@ -403,28 +447,41 @@ func shell(cfg Config, pages []Page, pg *Page) string {
 <title>` + htmlesc.EscapeString(pg.Title) + ` — ` + htmlesc.EscapeString(cfg.Title) + `</title>
 <link rel="stylesheet" href="` + cfg.Theme + `"/>
 <link rel="stylesheet" href="` + cfg.Highlight + `"/>
-<style>@layer project { :where(.pg-aside) > :where(.toc) { position: sticky; inset-block-start: 0; } }</style>
+<style>@layer project {
+  :root:not([data-ui-theme="dark"]) .to-light, :root[data-ui-theme="dark"] .to-dark { display: none; }
+  :where(h3.spread) > :where(a.icon) { --bg: 0; }
+}</style>
+<script>
+// the stored theme before first paint (the interstitial frame is pre-CSS)
+(function () { try { var t = localStorage.getItem('ui.theme'); if (t) document.documentElement.setAttribute('data-ui-theme', t) } catch (e) {} })();
+function toggleTheme() {
+  var h = document.documentElement, dark = h.getAttribute('data-ui-theme') === 'dark' || (!h.getAttribute('data-ui-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+  var t = dark ? 'light' : 'dark'; h.setAttribute('data-ui-theme', t); try { localStorage.setItem('ui.theme', t) } catch (e) {}
+}
+</script>
 </head>
 <body>
 <div class="page">
 	<header class="pg-header spread" style="--gap: 0.5em;">
-		<a href="` + root + `index.html" class="row oneline" style="--gap: 0.5em;"><strong>` + htmlesc.EscapeString(cfg.Title) + `</strong>` + tagline + `</a>
-		<span class="row oneline" style="--gap: 0.5em;">` + repo + `</span>
+		<span class="row oneline" style="--gap: 0.5em;">
+			<button type="button" class="icon mobile" aria-label="Menu" title="Menu" onclick="document.getElementById('site-nav').showModal()">` + iconMenu + `</button>
+			<a href="` + root + `index.html" class="row oneline" style="--gap: 0.5em;"><strong>` + htmlesc.EscapeString(cfg.Title) + `</strong>` + tagline + `</a>
+		</span>
+		<span class="row oneline" style="--gap: 0.25em;">` + theme + repo + `</span>
 	</header>
-	<nav class="pg-navigation spread-column tablet desktop" aria-label="Sections">
-		<div class="column">` + nav.String() + `</div>
-	</nav>
+	<nav class="pg-navigation spread-column tablet desktop" aria-label="Pages">` + nav.String() + `</nav>
+	<dialog id="site-nav" class="drawer left mobile" closedby="any" aria-label="Pages">` + nav.String() + `</dialog>
 	<header class="pg-main-header column">
 		` + crumbs + `
 		<div class="spread"><h1>` + htmlesc.EscapeString(pg.Title) + `</h1></div>
 	</header>
-	` + rail.String() + `
+	` + index + `
 	<main class="pg-main column owns-scroll">
 		<section class="column measure" style="--measure: 3; --gap: 1lh;">
 ` + blocks(pg.Body) + `
 		</section>
 	</main>
-	` + aside + foot + `
+	` + foot + `
 </div>
 <script src="` + cfg.HighlightJS + `"></script>
 </body>

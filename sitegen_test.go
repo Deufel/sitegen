@@ -9,7 +9,7 @@ import (
 
 func TestBuildFromSource(t *testing.T) {
 	out := t.TempDir()
-	site, err := Build(Config{Root: "testdata/mod", Out: out, Title: "thing", Repo: "https://example.com/r"})
+	site, err := Build(Config{Root: "testdata/mod", Out: out, Title: "thing", Repo: "https://example.com/r", Ref: "v1"})
 	if err != nil {
 		t.Fatal(err)
 	}

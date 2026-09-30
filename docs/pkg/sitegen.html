@@ -7,22 +7,35 @@
 <title>sitegen — sitegen</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Deufel/system-css@v0.6.0/static/system.css"/>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Deufel/system-css@v0.6.0/static/highlight.css"/>
-<style>@layer project { :where(.pg-aside) > :where(.toc) { position: sticky; inset-block-start: 0; } }</style>
+<style>@layer project {
+  :root:not([data-ui-theme="dark"]) .to-light, :root[data-ui-theme="dark"] .to-dark { display: none; }
+  :where(h3.spread) > :where(a.icon) { --bg: 0; }
+}</style>
+<script>
+// the stored theme before first paint (the interstitial frame is pre-CSS)
+(function () { try { var t = localStorage.getItem('ui.theme'); if (t) document.documentElement.setAttribute('data-ui-theme', t) } catch (e) {} })();
+function toggleTheme() {
+  var h = document.documentElement, dark = h.getAttribute('data-ui-theme') === 'dark' || (!h.getAttribute('data-ui-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+  var t = dark ? 'light' : 'dark'; h.setAttribute('data-ui-theme', t); try { localStorage.setItem('ui.theme', t) } catch (e) {}
+}
+</script>
 </head>
 <body>
 <div class="page">
 	<header class="pg-header spread" style="--gap: 0.5em;">
-		<a href="../index.html" class="row oneline" style="--gap: 0.5em;"><strong>sitegen</strong><small style="--fg: -0.55;">a documentation site from a Go module&#39;s source</small></a>
-		<span class="row oneline" style="--gap: 0.5em;"><a href="https://github.com/Deufel/sitegen" style="--type: -1;">Source</a></span>
+		<span class="row oneline" style="--gap: 0.5em;">
+			<button type="button" class="icon mobile" aria-label="Menu" title="Menu" onclick="document.getElementById('site-nav').showModal()"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/></svg></button>
+			<a href="../index.html" class="row oneline" style="--gap: 0.5em;"><strong>sitegen</strong><small class="tablet desktop" style="--fg: -0.55;">a documentation site from a Go module&#39;s source</small></a>
+		</span>
+		<span class="row oneline" style="--gap: 0.25em;"><button type="button" class="icon" aria-label="Theme" title="Light or dark" onclick="toggleTheme()"><span class="to-dark"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></span><span class="to-light"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span></button><a class="icon" href="https://github.com/Deufel/sitegen" aria-label="Source on GitHub" title="Source on GitHub"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg></a></span>
 	</header>
-	<nav class="pg-navigation spread-column tablet desktop" aria-label="Sections">
-		<div class="column"><a class="nav-item" href="../index.html"><span class="medium large">Home</span></a><a class="nav-item" href="../pkg/sitegen.html" aria-current="page"><span class="medium large">Packages</span></a></div>
-	</nav>
+	<nav class="pg-navigation spread-column tablet desktop" aria-label="Pages"><div class="column" style="--gap: 0.1lh;"><a class="nav-item" href="../index.html"><span>Home</span></a><small class="rail-head medium large" style="margin-block-start: 0.5lh;">Packages</small><a class="nav-item" href="../pkg/sitegen.html" aria-current="page"><span>sitegen</span></a><a class="nav-item" href="../pkg/cmd-sitegen.html"><span>cmd/sitegen</span></a></div></nav>
+	<dialog id="site-nav" class="drawer left mobile" closedby="any" aria-label="Pages"><div class="column" style="--gap: 0.1lh;"><a class="nav-item" href="../index.html"><span>Home</span></a><small class="rail-head medium large" style="margin-block-start: 0.5lh;">Packages</small><a class="nav-item" href="../pkg/sitegen.html" aria-current="page"><span>sitegen</span></a><a class="nav-item" href="../pkg/cmd-sitegen.html"><span>cmd/sitegen</span></a></div></dialog>
 	<header class="pg-main-header column">
-		<nav class="crumbs" aria-label="Breadcrumb"><a href="../index.html">sitegen</a><a href="../pkg/sitegen.html">Packages</a></nav>
+		<nav class="crumbs" aria-label="Breadcrumb"><a href="../index.html">sitegen</a><span>Packages</span></nav>
 		<div class="spread"><h1>sitegen</h1></div>
 	</header>
-	<nav class="pg-toolbar spread-column tablet desktop" aria-label="Packages"><div class="column" style="--gap: 0.1lh;"><small class="rail-head medium large">Packages</small><a class="nav-item" href="../pkg/sitegen.html" aria-current="page"><span class="medium large">sitegen</span></a><a class="nav-item" href="../pkg/cmd-sitegen.html"><span class="medium large">cmd/sitegen</span></a></div></nav>
+	<nav class="pg-toolbar spread-column tablet desktop" aria-label="On this page" style="--type: -1;"><div class="column" style="--gap: 0.1lh;"><a class="nav-item" href="#overview" style="margin-block-start: 0.5lh;"><span class="rail-head">Overview</span></a><a class="nav-item" href="#constants" style="margin-block-start: 0.5lh;"><span class="rail-head">Constants</span></a><a class="nav-item" href="#defaulttheme"><span>DefaultTheme</span></a><a class="nav-item" href="#functions" style="margin-block-start: 0.5lh;"><span class="rail-head">Functions</span></a><a class="nav-item" href="#dochtml"><span>DocHTML</span></a><a class="nav-item" href="#markdown"><span>Markdown</span></a><a class="nav-item" href="#must"><span>Must</span></a><a class="nav-item" href="#types" style="margin-block-start: 0.5lh;"><span class="rail-head">Types</span></a><a class="nav-item" href="#config"><span>Config</span></a><a class="nav-item" href="#example"><span>Example</span></a><a class="nav-item" href="#package"><span>Package</span></a><a class="nav-item" href="#packages"><span>Packages</span></a><a class="nav-item" href="#page"><span>Page</span></a><a class="nav-item" href="#problem"><span>Problem</span></a><a class="nav-item" href="#check"><span>Check</span></a><a class="nav-item" href="#checklinks"><span>CheckLinks</span></a><a class="nav-item" href="#problem-string"><span>Problem.String</span></a><a class="nav-item" href="#site"><span>Site</span></a><a class="nav-item" href="#build"><span>Build</span></a><a class="nav-item" href="#symbol"><span>Symbol</span></a><a class="nav-item" href="#type"><span>Type</span></a><a class="nav-item" href="#examples" style="margin-block-start: 0.5lh;"><span class="rail-head">Examples</span></a><a class="nav-item" href="#examplebuild"><span>Build</span></a><a class="nav-item" href="#examplecheck"><span>Check</span></a><a class="nav-item" href="#examplechecklinks"><span>CheckLinks</span></a><a class="nav-item" href="#exampledochtml"><span>DocHTML</span></a><a class="nav-item" href="#examplemarkdown"><span>Markdown</span></a><a class="nav-item" href="#examplemust"><span>Must</span></a><a class="nav-item" href="#examplepackages"><span>Packages</span></a></div></nav>
 	<main class="pg-main column owns-scroll">
 		<section class="column measure" style="--measure: 3; --gap: 1lh;">
 <p><code>import "github.com/Deufel/sitegen"</code></p><h2 id="overview">Overview</h2><p>Package sitegen builds a documentation site from a Go module&apos;s own
@@ -52,35 +65,39 @@ reports what is missing so a test can refuse a release that forgets.
 ships no stylesheet and no script of its own. The shell is the engine&apos;s
 page grid: a header, a rail of sections, the page, an &quot;On this page&quot;
 aside, previous and next.
-<h2 id="constants">Constants</h2><h3 id="defaulttheme">DefaultTheme</h3><div class="column" style="--gap: 0;"><pre><code class="go">const (
+<h2 id="constants">Constants</h2><h3 id="defaulttheme" class="spread">DefaultTheme<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/site.go#L35" aria-label="Source" title="site.go:35" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">const (
 	DefaultTheme		= &#34;https://cdn.jsdelivr.net/gh/Deufel/system-css@v0.6.0/static/system.css&#34;
 	DefaultHighlight	= &#34;https://cdn.jsdelivr.net/gh/Deufel/system-css@v0.6.0/static/highlight.css&#34;
 	DefaultHighlightJS	= &#34;https://cdn.jsdelivr.net/gh/Deufel/system-css@v0.6.0/static/highlight.js&#34;
 )</code></pre></div><p>DefaultTheme — the engine at a tag; a site pins one and moves on purpose.
-<h2 id="functions">Functions</h2><h3 id="dochtml">DocHTML</h3><div class="column" style="--gap: 0;"><pre><code class="go">func DocHTML(text string) string</code></pre></div><p>DocHTML renders a Go doc comment (the go/doc/comment syntax: headings,
+<h2 id="functions">Functions</h2><h3 id="dochtml" class="spread">DocHTML<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/gosrc.go#L234" aria-label="Source" title="gosrc.go:234" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">func DocHTML(text string) string</code></pre></div><p>DocHTML renders a Go doc comment (the go/doc/comment syntax: headings,
 lists, code blocks, links) to HTML.
-<h3 id="markdown">Markdown</h3><div class="column" style="--gap: 0;"><pre><code class="go">func Markdown(src string) string</code></pre></div><p>Markdown renders GitHub-flavoured markdown to HTML with heading ids.
-<h3 id="must">Must</h3><div class="column" style="--gap: 0;"><pre><code class="go">func Must(problems []Problem, err error) error</code></pre></div><p>Must fails when problems remain — the one-line guard for a test.
-<h2 id="types">Types</h2><h3 id="config">Config</h3><div class="column" style="--gap: 0;"><pre><code class="go">type Config struct {
+<h3 id="markdown" class="spread">Markdown<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/site.go#L64" aria-label="Source" title="site.go:64" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">func Markdown(src string) string</code></pre></div><p>Markdown renders GitHub-flavoured markdown to HTML with heading ids.
+<h3 id="must" class="spread">Must<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/check.go#L112" aria-label="Source" title="check.go:112" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">func Must(problems []Problem, err error) error</code></pre></div><p>Must fails when problems remain — the one-line guard for a test.
+<h2 id="types">Types</h2><h3 id="config" class="spread">Config<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/site.go#L21" aria-label="Source" title="site.go:21" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">type Config struct {
 	Root	string	// the module&#39;s directory (holds go.mod)
 	Out	string	// the site&#39;s directory (created; index.html and the pages)
 	Title	string	// the site&#39;s name; the module&#39;s last path element when empty
 	Tagline	string	// a few words under the title
-	Repo	string	// the repository URL, linked from the header
+	Repo	string	// the repository URL, linked from the header; with Ref, every symbol links to its source line
+	Ref	string	// the branch, tag or commit the source links point at; &#34;HEAD&#34; when empty
 	Guide	string	// the markdown pages&#39; directory relative to Root; &#34;guide&#34; when empty; absent is fine
 	// Theme is the engine stylesheet&#39;s URL; the pinned system.css tag when
 	// empty. Highlight is its syntax companion (&#34;&#34; = the tag&#39;s).
 	Theme, Highlight, HighlightJS	string
 }</code></pre></div><p>Config names the module and where its site goes.
-<h3 id="example">Example</h3><div class="column" style="--gap: 0;"><pre><code class="go">type Example struct {
+<h3 id="example" class="spread">Example<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/gosrc.go#L50" aria-label="Source" title="gosrc.go:50" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">type Example struct {
 	Name	string	// the example&#39;s full name (ExampleRun_backup)
 	For	string	// the symbol it documents (&#34;&#34; = the package)
 	Suffix	string	// the part after the underscore
 	Doc	string
 	Code	string
 	Output	string
-}</code></pre></div><p>Example is one Example function: what it shows, its code, its output.
-<h3 id="package">Package</h3><div class="column" style="--gap: 0;"><pre><code class="go">type Package struct {
+	File	string
+	Line	int
+}</code></pre></div><p>Example is one Example function: what it shows, its code, its output,
+and where it is written.
+<h3 id="package" class="spread">Package<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/gosrc.go#L18" aria-label="Source" title="gosrc.go:18" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">type Package struct {
 	ImportPath	string
 	Name		string
 	Dir		string		// relative to the module root
@@ -92,47 +109,51 @@ lists, code blocks, links) to HTML.
 	Funcs		[]Symbol	// package-level functions
 	Examples	[]Example
 }</code></pre></div><p>Package is one Go package as the site reads it.
-<h3 id="packages">Packages</h3><div class="column" style="--gap: 0;"><pre><code class="go">func Packages(root string) ([]Package, error)</code></pre></div><p>Packages reads every package under root (the module&apos;s directory):
+<h3 id="packages" class="spread">Packages<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/gosrc.go#L65" aria-label="Source" title="gosrc.go:65" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">func Packages(root string) ([]Package, error)</code></pre></div><p>Packages reads every package under root (the module&apos;s directory):
 directories holding non-test Go files, except testdata, vendor, hidden
 and internal ones. The import path is the module path joined with the
 directory.
-<h3 id="page">Page</h3><div class="column" style="--gap: 0;"><pre><code class="go">type Page struct {
+<h3 id="page" class="spread">Page<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/site.go#L42" aria-label="Source" title="site.go:42" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">type Page struct {
 	Path	string	// relative to Out (&#34;index.html&#34;, &#34;guide/start.html&#34;, &#34;pkg/migrate.html&#34;)
 	Title	string
 	Section	string	// &#34;&#34; (home) · &#34;guide&#34; · &#34;pkg&#34;
 	Order	int
 	Body	string	// the rendered HTML inside the measure
+	Index	string	// the page&#39;s own index for the n3 rail: a package&#39;s symbols by kind, a markdown page&#39;s headings
 }</code></pre></div><p>Page is one rendered page of the site.
-<h3 id="problem">Problem</h3><div class="column" style="--gap: 0;"><pre><code class="go">type Problem struct {
+<h3 id="problem" class="spread">Problem<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/check.go#L12" aria-label="Source" title="check.go:12" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">type Problem struct {
 	Package	string
 	Kind	string	// &#34;package-doc&#34; · &#34;symbol-doc&#34; · &#34;example&#34; · &#34;link&#34;
 	Name	string
 }</code></pre></div><p>Problem is one thing the module&apos;s documentation lacks.
-<h3 id="check">Check</h3><div class="column" style="--gap: 0;"><pre><code class="go">func Check(root string) ([]Problem, error)</code></pre></div><p>Check reads the module and reports what the discipline asks for and
+<h3 id="check" class="spread">Check<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/check.go#L26" aria-label="Source" title="check.go:26" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">func Check(root string) ([]Problem, error)</code></pre></div><p>Check reads the module and reports what the discipline asks for and
 the source lacks: a package without a comment, an exported symbol
 without one, a package-level function with no example. A test asserts
 the list is empty; the strictness is the caller&apos;s — filter by Kind for
 the level a project keeps.
-<h3 id="checklinks">CheckLinks</h3><div class="column" style="--gap: 0;"><pre><code class="go">func CheckLinks(out string) ([]Problem, error)</code></pre></div><p>CheckLinks walks the built site and reports every relative link that
+<h3 id="checklinks" class="spread">CheckLinks<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/check.go#L86" aria-label="Source" title="check.go:86" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">func CheckLinks(out string) ([]Problem, error)</code></pre></div><p>CheckLinks walks the built site and reports every relative link that
 names a file the site lacks.
-<h3 id="problem-string">Problem.String</h3><div class="column" style="--gap: 0;"><pre><code class="go">func (p Problem) String() string</code></pre></div><p>String reads &quot;package: kind name&quot;.
-<h3 id="site">Site</h3><div class="column" style="--gap: 0;"><pre><code class="go">type Site struct {
+<h3 id="problem-string" class="spread">Problem.String<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/check.go#L19" aria-label="Source" title="check.go:19" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">func (p Problem) String() string</code></pre></div><p>String reads &quot;package: kind name&quot;.
+<h3 id="site" class="spread">Site<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/site.go#L52" aria-label="Source" title="site.go:52" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">type Site struct {
 	Pages		[]Page
 	Packages	[]Package
 }</code></pre></div><p>Site is what Build wrote.
-<h3 id="build">Build</h3><div class="column" style="--gap: 0;"><pre><code class="go">func Build(cfg Config) (Site, error)</code></pre></div><p>Build reads the module and writes the site. It answers the pages it
+<h3 id="build" class="spread">Build<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/site.go#L72" aria-label="Source" title="site.go:72" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">func Build(cfg Config) (Site, error)</code></pre></div><p>Build reads the module and writes the site. It answers the pages it
 wrote, so a test can look at them without reading the disk again.
-<h3 id="symbol">Symbol</h3><div class="column" style="--gap: 0;"><pre><code class="go">type Symbol struct {
+<h3 id="symbol" class="spread">Symbol<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/gosrc.go#L33" aria-label="Source" title="gosrc.go:33" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">type Symbol struct {
 	Name	string
 	Sig	string	// the declaration as printed, bodies stripped
 	Doc	string
-}</code></pre></div><p>Symbol is one exported declaration: its printed signature and its comment.
-<h3 id="type">Type</h3><div class="column" style="--gap: 0;"><pre><code class="go">type Type struct {
+	File	string
+	Line	int
+}</code></pre></div><p>Symbol is one exported declaration: its printed signature, its comment,
+and where it is written (the file relative to the module root, the line).
+<h3 id="type" class="spread">Type<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/gosrc.go#L42" aria-label="Source" title="gosrc.go:42" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">type Type struct {
 	Symbol
 	Funcs	[]Symbol	// constructors: functions returning the type
 	Methods	[]Symbol
 }</code></pre></div><p>Type is an exported type with the functions and methods that belong to it.
-<h2 id="examples">Examples</h2><h3 id="examplebuild">Build</h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
+<h2 id="examples">Examples</h2><h3 id="examplebuild" class="spread">Build<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/example_test.go#L19" aria-label="Source" title="example_test.go:19" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
 
 import (
 	&#34;fmt&#34;
@@ -149,7 +170,7 @@ func main() {
 	}
 }</code></pre></div><small>Output</small><div class="column" style="--gap: 0;"><pre><code>index.html — thing
 guide/start.html — Getting started
-pkg/thing.html — thing</code></pre></div><h3 id="examplecheck">Check</h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
+pkg/thing.html — thing</code></pre></div><h3 id="examplecheck" class="spread">Check<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/example_test.go#L31" aria-label="Source" title="example_test.go:31" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
 
 import (
 	&#34;fmt&#34;
@@ -163,7 +184,7 @@ func main() {
 		fmt.Println(p)
 	}
 }</code></pre></div><small>Output</small><div class="column" style="--gap: 0;"><pre><code>example.com/thing/thing: symbol-doc Undocumented
-example.com/thing/thing: example Undocumented</code></pre></div><h3 id="examplechecklinks">CheckLinks</h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
+example.com/thing/thing: example Undocumented</code></pre></div><h3 id="examplechecklinks" class="spread">CheckLinks<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/example_test.go#L41" aria-label="Source" title="example_test.go:41" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
 
 import (
 	&#34;fmt&#34;
@@ -177,7 +198,7 @@ func main() {
 	_, _ = sitegen.Build(sitegen.Config{Root: &#34;testdata/mod&#34;, Out: out})
 	problems, _ := sitegen.CheckLinks(out)
 	fmt.Println(len(problems), &#34;broken links&#34;)
-}</code></pre></div><small>Output</small><div class="column" style="--gap: 0;"><pre><code>0 broken links</code></pre></div><h3 id="exampledochtml">DocHTML</h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
+}</code></pre></div><small>Output</small><div class="column" style="--gap: 0;"><pre><code>0 broken links</code></pre></div><h3 id="exampledochtml" class="spread">DocHTML<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/example_test.go#L55" aria-label="Source" title="example_test.go:55" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
 
 import (
 	&#34;fmt&#34;
@@ -189,7 +210,7 @@ func main() {
 	fmt.Println(sitegen.DocHTML(&#34;Add answers a plus b.\n\n# Why\n\nBecause.&#34;))
 }</code></pre></div><small>Output</small><div class="column" style="--gap: 0;"><pre><code>&lt;p&gt;Add answers a plus b.
 &lt;h3 id=&#34;hdr-Why&#34;&gt;Why&lt;/h3&gt;
-&lt;p&gt;Because.</code></pre></div><h3 id="examplemarkdown">Markdown</h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
+&lt;p&gt;Because.</code></pre></div><h3 id="examplemarkdown" class="spread">Markdown<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/example_test.go#L63" aria-label="Source" title="example_test.go:63" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
 
 import (
 	&#34;fmt&#34;
@@ -200,7 +221,7 @@ import (
 func main() {
 	fmt.Print(sitegen.Markdown(&#34;## Start\n\nA *word*.\n&#34;))
 }</code></pre></div><small>Output</small><div class="column" style="--gap: 0;"><pre><code>&lt;h2 id=&#34;start&#34;&gt;Start&lt;/h2&gt;
-&lt;p&gt;A &lt;em&gt;word&lt;/em&gt;.&lt;/p&gt;</code></pre></div><h3 id="examplemust">Must</h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
+&lt;p&gt;A &lt;em&gt;word&lt;/em&gt;.&lt;/p&gt;</code></pre></div><h3 id="examplemust" class="spread">Must<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/example_test.go#L49" aria-label="Source" title="example_test.go:49" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
 
 import (
 	&#34;fmt&#34;
@@ -212,7 +233,7 @@ import (
 func main() {
 	err := sitegen.Must([]sitegen.Problem{{Package: &#34;p&#34;, Kind: &#34;example&#34;, Name: &#34;Run&#34;}}, nil)
 	fmt.Println(strings.Split(err.Error(), &#34;\n&#34;)[0])
-}</code></pre></div><small>Output</small><div class="column" style="--gap: 0;"><pre><code>sitegen: 1 problems</code></pre></div><h3 id="examplepackages">Packages</h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
+}</code></pre></div><small>Output</small><div class="column" style="--gap: 0;"><pre><code>sitegen: 1 problems</code></pre></div><h3 id="examplepackages" class="spread">Packages<a class="icon" href="https://github.com/Deufel/sitegen/blob/HEAD/example_test.go#L11" aria-label="Source" title="example_test.go:11" style="--type: -1; --fg: -0.55;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg></a></h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
 
 import (
 	&#34;fmt&#34;
@@ -228,7 +249,7 @@ func main() {
 }</code></pre></div><small>Output</small><div class="column" style="--gap: 0;"><pre><code>example.com/thing/thing — Package thing adds numbers. — 2 functions, 2 examples</code></pre></div>
 		</section>
 	</main>
-	<aside class="pg-aside desktop"><nav class="toc column" aria-label="On this page" style="--gap: 0; --type: -1;"><small class="rail-head">On this page</small><a href="#overview">Overview</a><a href="#constants">Constants</a><a href="#functions">Functions</a><a href="#types">Types</a><a href="#examples">Examples</a></nav></aside><footer class="pg-main-footer spread" style="--type: -1;"><span></span><span><a href="../pkg/cmd-sitegen.html">cmd/sitegen →</a></span></footer>
+	<footer class="pg-main-footer spread" style="--type: -1;"><span></span><span><a href="../pkg/cmd-sitegen.html">cmd/sitegen →</a></span></footer>
 </div>
 <script src="https://cdn.jsdelivr.net/gh/Deufel/system-css@v0.6.0/static/highlight.js"></script>
 </body>
