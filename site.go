@@ -2,6 +2,7 @@ package sitegen
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	htmlesc "html"
 	"os"
@@ -27,8 +28,9 @@ type Config struct {
 	Ref     string // the branch, tag or commit the source links point at; "HEAD" when empty
 	Guide   string // the markdown pages' directory relative to Root; "guide" when empty; absent is fine
 	// Theme is the engine stylesheet's URL; the pinned system.css tag when
-	// empty. Highlight is its syntax companion ("" = the tag's).
-	Theme, Highlight, HighlightJS string
+	// empty. Highlight is its syntax companion ("" = the tag's). Datastar
+	// drives the search dialog ("" = the free bundle at a tag).
+	Theme, Highlight, HighlightJS, Datastar string
 }
 
 // DefaultTheme — the engine at a tag; a site pins one and moves on purpose.
@@ -36,6 +38,7 @@ const (
 	DefaultTheme       = "https://cdn.jsdelivr.net/gh/Deufel/system-css@v0.6.0/static/system.css"
 	DefaultHighlight   = "https://cdn.jsdelivr.net/gh/Deufel/system-css@v0.6.0/static/highlight.css"
 	DefaultHighlightJS = "https://cdn.jsdelivr.net/gh/Deufel/system-css@v0.6.0/static/highlight.js"
+	DefaultDatastar    = "https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.4/bundles/datastar.js"
 )
 
 // Page is one rendered page of the site.
@@ -44,8 +47,19 @@ type Page struct {
 	Title   string
 	Section string // "" (home) · "guide" · "pkg"
 	Order   int
-	Body    string // the rendered HTML inside the measure
-	Index   string // the page's own index for the n3 rail: a package's symbols by kind, a markdown page's headings
+	Body    string  // the rendered HTML inside the measure
+	Index   string  // the page's own index for the n3 rail: a package's symbols by kind, a markdown page's headings
+	Entries []Entry // what the search finds on this page
+}
+
+// Entry is one thing the site-wide search can land on: a page, a symbol,
+// an example, a heading.
+type Entry struct {
+	Title  string
+	Kind   string // "page" · "const" · "var" · "func" · "type" · "method" · "example" · "heading"
+	Anchor string // "" = the page itself
+	Page   string // the page's path (filled by Build)
+	Where  string // the page's title, shown beside a hit
 }
 
 // Site is what Build wrote.
@@ -88,6 +102,9 @@ func Build(cfg Config) (Site, error) {
 	if cfg.Ref == "" {
 		cfg.Ref = "HEAD"
 	}
+	if cfg.Datastar == "" {
+		cfg.Datastar = DefaultDatastar
+	}
 	pkgs, err := Packages(cfg.Root)
 	if err != nil {
 		return Site{}, err
@@ -100,7 +117,8 @@ func Build(cfg Config) (Site, error) {
 	var pages []Page
 	// the front page: README.md, else the first package's overview
 	if b, err := os.ReadFile(filepath.Join(cfg.Root, "README.md")); err == nil {
-		pages = append(pages, Page{Path: "index.html", Title: cfg.Title, Body: repoLinks(Markdown(string(b)), cfg.Repo)})
+		body := repoLinks(Markdown(string(b)), cfg.Repo)
+		pages = append(pages, Page{Path: "index.html", Title: cfg.Title, Body: body, Entries: headings(body)})
 	} else if len(pkgs) > 0 {
 		pages = append(pages, Page{Path: "index.html", Title: cfg.Title, Body: DocHTML(pkgs[0].Doc)})
 	} else {
@@ -117,15 +135,23 @@ func Build(cfg Config) (Site, error) {
 	if err := os.MkdirAll(cfg.Out, 0o755); err != nil {
 		return Site{}, err
 	}
+	var entries []Entry
 	for i := range pages {
 		if pages[i].Index == "" {
 			pages[i].Index = headingIndex(pages[i].Body)
 		}
+		entries = append(entries, Entry{Title: pages[i].Title, Kind: "page", Page: pages[i].Path, Where: pages[i].Title})
+		for _, e := range pages[i].Entries {
+			e.Page, e.Where = pages[i].Path, pages[i].Title
+			entries = append(entries, e)
+		}
+	}
+	for i := range pages {
 		out := filepath.Join(cfg.Out, filepath.FromSlash(pages[i].Path))
 		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return Site{}, err
 		}
-		if err := os.WriteFile(out, []byte(shell(cfg, pages, &pages[i])), 0o644); err != nil {
+		if err := os.WriteFile(out, []byte(shell(cfg, pages, entries, &pages[i])), 0o644); err != nil {
 			return Site{}, err
 		}
 	}
@@ -199,6 +225,7 @@ func guidePages(dir string) ([]Page, error) {
 			pg.Title = strings.TrimSuffix(e.Name(), ".md")
 		}
 		pg.Body = Markdown(src)
+		pg.Entries = headings(pg.Body)
 		out = append(out, pg)
 	}
 	sort.SliceStable(out, func(i, j int) bool {
@@ -235,9 +262,12 @@ func packagePage(cfg Config, p Package) Page {
 	ixItem := func(id, label string) {
 		ix.WriteString(`<a class="nav-item" href="#` + htmlesc.EscapeString(id) + `"><span>` + htmlesc.EscapeString(label) + `</span></a>`)
 	}
+	var entries []Entry
+	kind := "func"
 	sym := func(s Symbol) {
 		head(anchor(s.Name), s.Name, source(s.File, s.Line))
 		ixItem(anchor(s.Name), s.Name)
+		entries = append(entries, Entry{Title: s.Name, Kind: kind, Anchor: anchor(s.Name)})
 		b.WriteString(`<pre><code class="go">` + htmlesc.EscapeString(s.Sig) + `</code></pre>`)
 		b.WriteString(DocHTML(s.Doc))
 	}
@@ -245,6 +275,7 @@ func packagePage(cfg Config, p Package) Page {
 	if len(p.Consts) > 0 {
 		b.WriteString(`<h2 id="constants">Constants</h2>`)
 		ixHead("constants", "Constants")
+		kind = "const"
 		for _, s := range p.Consts {
 			sym(s)
 		}
@@ -252,6 +283,7 @@ func packagePage(cfg Config, p Package) Page {
 	if len(p.Vars) > 0 {
 		b.WriteString(`<h2 id="variables">Variables</h2>`)
 		ixHead("variables", "Variables")
+		kind = "var"
 		for _, s := range p.Vars {
 			sym(s)
 		}
@@ -259,6 +291,7 @@ func packagePage(cfg Config, p Package) Page {
 	if len(p.Funcs) > 0 {
 		b.WriteString(`<h2 id="functions">Functions</h2>`)
 		ixHead("functions", "Functions")
+		kind = "func"
 		for _, s := range p.Funcs {
 			sym(s)
 		}
@@ -267,10 +300,13 @@ func packagePage(cfg Config, p Package) Page {
 		b.WriteString(`<h2 id="types">Types</h2>`)
 		ixHead("types", "Types")
 		for _, t := range p.Types {
+			kind = "type"
 			sym(t.Symbol)
+			kind = "func"
 			for _, f := range t.Funcs {
 				sym(f)
 			}
+			kind = "method"
 			for _, m := range t.Methods {
 				m.Name = t.Name + "." + m.Name
 				sym(m)
@@ -290,6 +326,7 @@ func packagePage(cfg Config, p Package) Page {
 			}
 			head(anchor(ex.Name), title, source(ex.File, ex.Line))
 			ixItem(anchor(ex.Name), title)
+			entries = append(entries, Entry{Title: title, Kind: "example", Anchor: anchor(ex.Name)})
 			if ex.Doc != "" {
 				b.WriteString(DocHTML(ex.Doc))
 			}
@@ -309,7 +346,14 @@ func packagePage(cfg Config, p Package) Page {
 	if p.Dir != "" {
 		title = filepath.ToSlash(p.Dir)
 	}
-	return Page{Path: path + ".html", Title: title, Section: "pkg", Body: b.String(), Index: ix.String()}
+	return Page{Path: path + ".html", Title: title, Section: "pkg", Body: b.String(), Index: ix.String(), Entries: entries}
+}
+
+// searchText — an entry's haystack as a JS string literal (json), escaped
+// for the attribute it sits in.
+func searchText(e Entry) string {
+	b, _ := json.Marshal(strings.ToLower(e.Title + " " + e.Kind + " " + e.Where))
+	return htmlesc.EscapeString(string(b))
 }
 
 func anchor(name string) string {
@@ -329,6 +373,15 @@ func blocks(body string) string {
 
 var h2html = regexp.MustCompile(`<h2 id="([^"]+)">(.+?)</h2>`)
 var tagRe = regexp.MustCompile(`<[^>]+>`)
+
+// headings — a markdown page's h2s as search entries.
+func headings(body string) []Entry {
+	var out []Entry
+	for _, m := range h2html.FindAllStringSubmatch(body, -1) {
+		out = append(out, Entry{Title: tagRe.ReplaceAllString(m[2], ""), Kind: "heading", Anchor: m[1]})
+	}
+	return out
+}
 
 // headingIndex — a markdown page's h2 list as its index, when it has two
 // or more.
@@ -364,6 +417,7 @@ const (
 	iconSun    = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`
 	iconMoon   = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`
 	iconGitHub = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>`
+	iconSearch = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`
 	iconCode   = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg>`
 )
 
@@ -373,7 +427,7 @@ const (
 // on wide screens and a left drawer on a phone, the page's own index on
 // the n3 rail (a package's symbols by kind, a markdown page's headings),
 // the measure, previous and next.
-func shell(cfg Config, pages []Page, pg *Page) string {
+func shell(cfg Config, pages []Page, entries []Entry, pg *Page) string {
 	root := strings.Repeat("../", strings.Count(pg.Path, "/"))
 	var siblings []*Page
 	for i := range pages {
@@ -435,6 +489,26 @@ func shell(cfg Config, pages []Page, pg *Page) string {
 	if cfg.Tagline != "" {
 		tagline = `<small class="tablet desktop" style="--fg: -0.55;">` + htmlesc.EscapeString(cfg.Tagline) + `</small>`
 	}
+	// THE SEARCH (the ds_docs_demo pattern, on the engine): every entry of
+	// the site pre-rendered in one dialog, shown by a Datastar expression
+	// over the query, ordered by how well it matches — no server, no index
+	// file, no client list rendering
+	var hits strings.Builder
+	for _, e := range entries {
+		link := href(pg.Path, e.Page)
+		if e.Anchor != "" {
+			link += "#" + e.Anchor
+		}
+		hay := searchText(e)
+		hits.WriteString(`<a class="nav-item" href="` + htmlesc.EscapeString(link) + `" data-show="hit(` + hay + `, $q)" data-style:order="-rank(` + hay + `, $q)" style="display: none;"><span>` + htmlesc.EscapeString(e.Title) + `</span><small style="--fg: -0.55; margin-inline-start: auto;">` + htmlesc.EscapeString(e.Kind+" · "+e.Where) + `</small></a>`)
+	}
+	search := `<button type="button" class="icon" aria-label="Search" title="Search (/)" onclick="openSearch()">` + iconSearch + `</button>`
+	searchDialog := `<dialog id="site-search" class="modal glass" closedby="any" aria-label="Search" data-signals="{q: ''}" data-on:keydown__window="evt.key === '/' && !el.open && (evt.preventDefault(), openSearch())">
+		<div class="column" style="--gap: 0.5lh;">
+			<label class="search-box">` + iconSearch + `<input type="search" placeholder="Search…" data-bind:q autocomplete="off"/><kbd>esc</kbd></label>
+			<div class="column scroll-y" data-show="$q.trim().length > 0" style="--gap: 0; max-block-size: 60vh; display: none;">` + hits.String() + `</div>
+		</div>
+	</dialog>`
 	// the theme toggle: light ↔ dark on the root, remembered in storage
 	// under the engine site's own key; the glyph shows what a tap gives
 	theme := `<button type="button" class="icon" aria-label="Theme" title="Light or dark" onclick="toggleTheme()"><span class="to-dark">` + iconMoon + `</span><span class="to-light">` + iconSun + `</span></button>`
@@ -454,6 +528,12 @@ func shell(cfg Config, pages []Page, pg *Page) string {
 <script>
 // the stored theme before first paint (the interstitial frame is pre-CSS)
 (function () { try { var t = localStorage.getItem('ui.theme'); if (t) document.documentElement.setAttribute('data-ui-theme', t) } catch (e) {} })();
+function openSearch() { var d = document.getElementById('site-search'); d.showModal(); d.querySelector('input').focus() }
+// the search: every term of the query somewhere in the entry's text; the
+// rank counts terms at a word start, so "run" lists Run before Rerun
+function terms(q) { return q.toLowerCase().trim().split(/\s+/).filter(Boolean) }
+function hit(h, q) { var t = terms(q); return t.length > 0 && t.every(function (x) { return h.indexOf(x) >= 0 }) }
+function rank(h, q) { return terms(q).reduce(function (n, x) { return n + (h.indexOf(x) === 0 || h.indexOf(' ' + x) >= 0 || h.indexOf('.' + x) >= 0 ? 2 : 1) }, 0) }
 function toggleTheme() {
   var h = document.documentElement, dark = h.getAttribute('data-ui-theme') === 'dark' || (!h.getAttribute('data-ui-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
   var t = dark ? 'light' : 'dark'; h.setAttribute('data-ui-theme', t); try { localStorage.setItem('ui.theme', t) } catch (e) {}
@@ -467,8 +547,9 @@ function toggleTheme() {
 			<button type="button" class="icon mobile" aria-label="Menu" title="Menu" onclick="document.getElementById('site-nav').showModal()">` + iconMenu + `</button>
 			<a href="` + root + `index.html" class="row oneline" style="--gap: 0.5em;"><strong>` + htmlesc.EscapeString(cfg.Title) + `</strong>` + tagline + `</a>
 		</span>
-		<span class="row oneline" style="--gap: 0.25em;">` + theme + repo + `</span>
+		<span class="row oneline" style="--gap: 0.25em;">` + search + theme + repo + `</span>
 	</header>
+	` + searchDialog + `
 	<nav class="pg-navigation spread-column tablet desktop" aria-label="Pages">` + nav.String() + `</nav>
 	<dialog id="site-nav" class="drawer left mobile" closedby="any" aria-label="Pages">` + nav.String() + `</dialog>
 	<header class="pg-main-header column">
@@ -484,6 +565,7 @@ function toggleTheme() {
 	` + foot + `
 </div>
 <script src="` + cfg.HighlightJS + `"></script>
+<script type="module" src="` + cfg.Datastar + `"></script>
 </body>
 </html>
 `
