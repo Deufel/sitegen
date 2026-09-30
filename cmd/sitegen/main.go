@@ -25,6 +25,7 @@ func main() {
 	flag.StringVar(&cfg.Repo, "repo", "", "the repository URL (every symbol then links to its source line)")
 	flag.StringVar(&cfg.Ref, "ref", "", "the branch, tag or commit the source links point at (HEAD when empty)")
 	flag.StringVar(&cfg.Guide, "guide", "guide", "the markdown pages' directory, relative to root")
+	flag.StringVar(&cfg.Front, "front", "", "the front page's markdown file, relative to root (README.md when empty)")
 	flag.StringVar(&cfg.Theme, "theme", "", "the engine stylesheet's URL (system.css at a tag when empty)")
 	flag.Parse()
 	if *check {

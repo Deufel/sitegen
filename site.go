@@ -27,6 +27,7 @@ type Config struct {
 	Repo    string // the repository URL, linked from the header; with Ref, every symbol links to its source line
 	Ref     string // the branch, tag or commit the source links point at; "HEAD" when empty
 	Guide   string // the markdown pages' directory relative to Root; "guide" when empty; absent is fine
+	Front   string // the front page's markdown file relative to Root; "README.md" when empty
 	// Theme is the engine stylesheet's URL; the pinned system.css tag when
 	// empty. Highlight is its syntax companion ("" = the tag's). Datastar
 	// drives the search dialog ("" = the free bundle at a tag).
@@ -115,8 +116,11 @@ func Build(cfg Config) (Site, error) {
 		}
 	}
 	var pages []Page
-	// the front page: README.md, else the first package's overview
-	if b, err := os.ReadFile(filepath.Join(cfg.Root, "README.md")); err == nil {
+	if cfg.Front == "" {
+		cfg.Front = "README.md"
+	}
+	// the front page: the front file (README.md), else the first package's overview
+	if b, err := os.ReadFile(filepath.Join(cfg.Root, cfg.Front)); err == nil {
 		body := repoLinks(Markdown(string(b)), cfg.Repo)
 		pages = append(pages, Page{Path: "index.html", Title: cfg.Title, Body: body, Entries: headings(body)})
 	} else if len(pkgs) > 0 {
