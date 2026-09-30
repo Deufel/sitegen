@@ -142,11 +142,13 @@ func readPackage(dir, rel, modPath string) (Package, bool, error) {
 		_ = printer.Fprint(&b, fset, node)
 		return b.String()
 	}
+	// a grouped declaration is headed by its first name (the block prints
+	// them all — cobra's twelve-name const heading was unreadable)
 	for _, v := range dp.Consts {
-		pkg.Consts = append(pkg.Consts, Symbol{Name: strings.Join(v.Names, ", "), Sig: sig(v.Decl), Doc: v.Doc})
+		pkg.Consts = append(pkg.Consts, Symbol{Name: v.Names[0], Sig: sig(v.Decl), Doc: v.Doc})
 	}
 	for _, v := range dp.Vars {
-		pkg.Vars = append(pkg.Vars, Symbol{Name: strings.Join(v.Names, ", "), Sig: sig(v.Decl), Doc: v.Doc})
+		pkg.Vars = append(pkg.Vars, Symbol{Name: v.Names[0], Sig: sig(v.Decl), Doc: v.Doc})
 	}
 	funcSig := func(f *doc.Func) Symbol {
 		decl := *f.Decl
