@@ -356,15 +356,19 @@ func packagePage(cfg Config, p Package) Page {
 			}
 		}
 	}
-	path := "pkg/" + strings.ReplaceAll(strings.Trim(p.Dir, "/"), "/", "-")
-	if p.Dir == "" {
-		path = "pkg/" + p.Name // the root package by its name (chi, not v5)
-	}
-	// the root package by its name, a nested one by its directory (ast and
-	// extension/ast are two packages), a command by its directory too
+	// the root package by its name (a root command by the module's, not
+	// "main"), a nested one by its directory (ast and extension/ast are
+	// two packages), a command by its directory too
 	title := p.Name
+	if p.Name == "main" {
+		title = p.ImportPath[strings.LastIndex(p.ImportPath, "/")+1:]
+	}
 	if p.Dir != "" {
 		title = filepath.ToSlash(p.Dir)
+	}
+	path := "pkg/" + strings.ReplaceAll(strings.Trim(p.Dir, "/"), "/", "-")
+	if p.Dir == "" {
+		path = "pkg/" + title // the root package by its name (chi, not v5; eventos, not main)
 	}
 	return Page{Path: path + ".html", Title: title, Section: "pkg", Body: b.String(), Index: ix.String(), Entries: entries}
 }
