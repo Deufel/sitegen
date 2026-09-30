@@ -551,7 +551,7 @@ function toggleTheme() {
 	</header>
 	` + searchDialog + `
 	<nav class="pg-navigation spread-column tablet desktop" aria-label="Pages">` + nav.String() + `</nav>
-	<dialog id="site-nav" class="drawer left mobile" closedby="any" aria-label="Pages">` + nav.String() + `</dialog>
+	<dialog id="site-nav" class="drawer left" closedby="any" aria-label="Pages">` + nav.String() + `</dialog>
 	<header class="pg-main-header column">
 		` + crumbs + `
 		<div class="spread"><h1>` + htmlesc.EscapeString(pg.Title) + `</h1></div>
