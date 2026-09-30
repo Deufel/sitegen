@@ -252,11 +252,26 @@ func packagePage(p Package) Page {
 	if p.Dir == "" {
 		path = "pkg/" + name
 	}
-	return Page{Path: path + ".html", Title: p.ImportPath, Section: "pkg", Body: b.String()}
+	title := p.Name
+	if p.Name == "main" {
+		title = name // a command is known by its directory
+	}
+	return Page{Path: path + ".html", Title: title, Section: "pkg", Body: b.String()}
 }
 
 func anchor(name string) string {
 	return strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(name, ".", "-"), " ", "-"))
+}
+
+var preBlock = regexp.MustCompile(`(?s)<pre[^>]*>.*?</pre>`)
+
+// blocks — every <pre> gets a block wrapper: inside the measure's flex
+// column a scroll container would shrink to one line; a plain column
+// around it keeps its content height (the engine site's own recipe).
+func blocks(body string) string {
+	return preBlock.ReplaceAllStringFunc(body, func(m string) string {
+		return `<div class="column" style="--gap: 0;">` + m + `</div>`
+	})
 }
 
 var h2html = regexp.MustCompile(`<h2 id="([^"]+)">(.+?)</h2>`)
@@ -387,7 +402,7 @@ func shell(cfg Config, pages []Page, pg *Page) string {
 	` + rail.String() + `
 	<main class="pg-main column owns-scroll">
 		<section class="column measure" style="--measure: 3; --gap: 1lh;">
-` + pg.Body + `
+` + blocks(pg.Body) + `
 		</section>
 	</main>
 	` + aside + foot + `
