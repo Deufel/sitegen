@@ -15,6 +15,7 @@ type Problem struct {
 	Name    string
 }
 
+// String reads "package: kind name".
 func (p Problem) String() string { return p.Package + ": " + p.Kind + " " + p.Name }
 
 // Check reads the module and reports what the discipline asks for and
@@ -63,6 +64,11 @@ func Check(root string) ([]Problem, error) {
 			need(t.Symbol) // a type is documented; its functions carry the examples
 			for _, f := range t.Funcs {
 				need(f)
+				// go/doc files a function under the type it returns; it still
+				// wants an example unless the type's own example shows it
+				if !exampled[f.Name] && !exampled[t.Name] {
+					out = append(out, Problem{p.ImportPath, "example", f.Name})
+				}
 			}
 			for _, m := range t.Methods {
 				m.Name = t.Name + "." + m.Name

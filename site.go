@@ -95,7 +95,7 @@ func Build(cfg Config) (Site, error) {
 	var pages []Page
 	// the front page: README.md, else the first package's overview
 	if b, err := os.ReadFile(filepath.Join(cfg.Root, "README.md")); err == nil {
-		pages = append(pages, Page{Path: "index.html", Title: cfg.Title, Body: Markdown(string(b))})
+		pages = append(pages, Page{Path: "index.html", Title: cfg.Title, Body: repoLinks(Markdown(string(b)), cfg.Repo)})
 	} else if len(pkgs) > 0 {
 		pages = append(pages, Page{Path: "index.html", Title: cfg.Title, Body: DocHTML(pkgs[0].Doc)})
 	} else {
@@ -122,6 +122,24 @@ func Build(cfg Config) (Site, error) {
 		}
 	}
 	return Site{Pages: pages, Packages: pkgs}, nil
+}
+
+var relHref = regexp.MustCompile(`href="(\./|/)?([A-Za-z0-9_][^":#?]*)"`)
+
+// repoLinks — a README links to files of the repository (LICENSE,
+// CONTRIBUTING.md, /middleware); on the site those point at the
+// repository's own view of them, so the link check stays honest.
+func repoLinks(body, repo string) string {
+	if repo == "" {
+		return body
+	}
+	return relHref.ReplaceAllStringFunc(body, func(m string) string {
+		g := relHref.FindStringSubmatch(m)
+		if strings.HasSuffix(g[2], ".html") {
+			return m
+		}
+		return `href="` + strings.TrimRight(repo, "/") + `/blob/HEAD/` + g[2] + `"`
+	})
 }
 
 var frontMatter = regexp.MustCompile(`(?s)\A---\n(.*?)\n---\n`)
@@ -249,11 +267,13 @@ func packagePage(p Package) Page {
 	}
 	path := "pkg/" + strings.ReplaceAll(strings.Trim(p.Dir, "/"), "/", "-")
 	if p.Dir == "" {
-		path = "pkg/" + p.ImportPath[strings.LastIndex(p.ImportPath, "/")+1:]
+		path = "pkg/" + p.Name // the root package by its name (chi, not v5)
 	}
+	// the root package by its name, a nested one by its directory (ast and
+	// extension/ast are two packages), a command by its directory too
 	title := p.Name
-	if p.Name == "main" {
-		title = filepath.ToSlash(p.Dir) // a command is known by its directory (cmd/migrate)
+	if p.Dir != "" {
+		title = filepath.ToSlash(p.Dir)
 	}
 	return Page{Path: path + ".html", Title: title, Section: "pkg", Body: b.String()}
 }

@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<meta name="color-scheme" content="dark light"/>
+<title>sitegen — sitegen</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Deufel/system-css@v0.6.0/static/system.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Deufel/system-css@v0.6.0/static/highlight.css"/>
+<style>@layer project { :where(.pg-aside) > :where(.toc) { position: sticky; inset-block-start: 0; } }</style>
+</head>
+<body>
+<div class="page">
+	<header class="pg-header spread" style="--gap: 0.5em;">
+		<a href="../index.html" class="row oneline" style="--gap: 0.5em;"><strong>sitegen</strong><small style="--fg: -0.55;">a documentation site from a Go module&#39;s source</small></a>
+		<span class="row oneline" style="--gap: 0.5em;"><a href="https://github.com/Deufel/sitegen" style="--type: -1;">Source</a></span>
+	</header>
+	<nav class="pg-navigation spread-column tablet desktop" aria-label="Sections">
+		<div class="column"><a class="nav-item" href="../index.html"><span class="medium large">Home</span></a><a class="nav-item" href="../pkg/sitegen.html" aria-current="page"><span class="medium large">Packages</span></a></div>
+	</nav>
+	<header class="pg-main-header column">
+		<nav class="crumbs" aria-label="Breadcrumb"><a href="../index.html">sitegen</a><a href="../pkg/sitegen.html">Packages</a></nav>
+		<div class="spread"><h1>sitegen</h1></div>
+	</header>
+	<nav class="pg-toolbar spread-column tablet desktop" aria-label="Packages"><div class="column" style="--gap: 0.1lh;"><small class="rail-head medium large">Packages</small><a class="nav-item" href="../pkg/sitegen.html" aria-current="page"><span class="medium large">sitegen</span></a><a class="nav-item" href="../pkg/cmd-sitegen.html"><span class="medium large">cmd/sitegen</span></a></div></nav>
+	<main class="pg-main column owns-scroll">
+		<section class="column measure" style="--measure: 3; --gap: 1lh;">
+<p><code>import "github.com/Deufel/sitegen"</code></p><h2 id="overview">Overview</h2><p>Package sitegen builds a documentation site from a Go module&apos;s own
+source: the package comments, the exported API, the tested examples,
+and a guide of markdown pages. The site is the by-product of writing
+ordinary, documented Go; nothing is written twice.
+<h3 id="hdr-What_the_site_is_made_of">What the site is made of</h3>
+<p>Four sources, each optional except the source itself:
+<ul>
+<li>README.md at the module root is the front page.
+<li>Every package&apos;s doc comment (doc.go by convention) is its overview.
+<li>Every exported identifier&apos;s doc comment is its reference entry,
+rendered with the signature printed from the syntax tree.
+<li>Every Example function in a _test.go file is shown with its code
+and its Output block — go test proves the output, so the example
+cannot rot.
+<li>Markdown files under guide/ (or the directory named in Config) are
+the narrative pages, ordered by their front matter.
+</ul>
+<h3 id="hdr-The_discipline_it_asks_for">The discipline it asks for</h3>
+<p>The standard one, the one pkg.go.dev already expects: an exported name
+carries a comment that begins with the name; a package carries a
+comment; anything worth showing carries an example with output. Check
+reports what is missing so a test can refuse a release that forgets.
+<h3 id="hdr-The_theme">The theme</h3>
+<p>Pages wear system.css from a CDN tag and nothing else; the generator
+ships no stylesheet and no script of its own. The shell is the engine&apos;s
+page grid: a header, a rail of sections, the page, an &quot;On this page&quot;
+aside, previous and next.
+<h2 id="constants">Constants</h2><h3 id="defaulttheme,-defaulthighlight,-defaulthighlightjs">DefaultTheme, DefaultHighlight, DefaultHighlightJS</h3><div class="column" style="--gap: 0;"><pre><code class="go">const (
+	DefaultTheme		= &#34;https://cdn.jsdelivr.net/gh/Deufel/system-css@v0.6.0/static/system.css&#34;
+	DefaultHighlight	= &#34;https://cdn.jsdelivr.net/gh/Deufel/system-css@v0.6.0/static/highlight.css&#34;
+	DefaultHighlightJS	= &#34;https://cdn.jsdelivr.net/gh/Deufel/system-css@v0.6.0/static/highlight.js&#34;
+)</code></pre></div><p>DefaultTheme — the engine at a tag; a site pins one and moves on purpose.
+<h2 id="functions">Functions</h2><h3 id="dochtml">DocHTML</h3><div class="column" style="--gap: 0;"><pre><code class="go">func DocHTML(text string) string</code></pre></div><p>DocHTML renders a Go doc comment (the go/doc/comment syntax: headings,
+lists, code blocks, links) to HTML.
+<h3 id="markdown">Markdown</h3><div class="column" style="--gap: 0;"><pre><code class="go">func Markdown(src string) string</code></pre></div><p>Markdown renders GitHub-flavoured markdown to HTML with heading ids.
+<h3 id="must">Must</h3><div class="column" style="--gap: 0;"><pre><code class="go">func Must(problems []Problem, err error) error</code></pre></div><p>Must fails when problems remain — the one-line guard for a test.
+<h2 id="types">Types</h2><h3 id="config">Config</h3><div class="column" style="--gap: 0;"><pre><code class="go">type Config struct {
+	Root	string	// the module&#39;s directory (holds go.mod)
+	Out	string	// the site&#39;s directory (created; index.html and the pages)
+	Title	string	// the site&#39;s name; the module&#39;s last path element when empty
+	Tagline	string	// a few words under the title
+	Repo	string	// the repository URL, linked from the header
+	Guide	string	// the markdown pages&#39; directory relative to Root; &#34;guide&#34; when empty; absent is fine
+	// Theme is the engine stylesheet&#39;s URL; the pinned system.css tag when
+	// empty. Highlight is its syntax companion (&#34;&#34; = the tag&#39;s).
+	Theme, Highlight, HighlightJS	string
+}</code></pre></div><p>Config names the module and where its site goes.
+<h3 id="example">Example</h3><div class="column" style="--gap: 0;"><pre><code class="go">type Example struct {
+	Name	string	// the example&#39;s full name (ExampleRun_backup)
+	For	string	// the symbol it documents (&#34;&#34; = the package)
+	Suffix	string	// the part after the underscore
+	Doc	string
+	Code	string
+	Output	string
+}</code></pre></div><p>Example is one Example function: what it shows, its code, its output.
+<h3 id="package">Package</h3><div class="column" style="--gap: 0;"><pre><code class="go">type Package struct {
+	ImportPath	string
+	Name		string
+	Dir		string		// relative to the module root
+	Doc		string		// the package comment, raw
+	Synopsis	string		// its first sentence
+	Consts		[]Symbol	// exported, grouped as declared
+	Vars		[]Symbol
+	Types		[]Type
+	Funcs		[]Symbol	// package-level functions
+	Examples	[]Example
+}</code></pre></div><p>Package is one Go package as the site reads it.
+<h3 id="packages">Packages</h3><div class="column" style="--gap: 0;"><pre><code class="go">func Packages(root string) ([]Package, error)</code></pre></div><p>Packages reads every package under root (the module&apos;s directory):
+directories holding non-test Go files, except testdata, vendor, hidden
+and internal ones. The import path is the module path joined with the
+directory.
+<h3 id="page">Page</h3><div class="column" style="--gap: 0;"><pre><code class="go">type Page struct {
+	Path	string	// relative to Out (&#34;index.html&#34;, &#34;guide/start.html&#34;, &#34;pkg/migrate.html&#34;)
+	Title	string
+	Section	string	// &#34;&#34; (home) · &#34;guide&#34; · &#34;pkg&#34;
+	Order	int
+	Body	string	// the rendered HTML inside the measure
+}</code></pre></div><p>Page is one rendered page of the site.
+<h3 id="problem">Problem</h3><div class="column" style="--gap: 0;"><pre><code class="go">type Problem struct {
+	Package	string
+	Kind	string	// &#34;package-doc&#34; · &#34;symbol-doc&#34; · &#34;example&#34; · &#34;link&#34;
+	Name	string
+}</code></pre></div><p>Problem is one thing the module&apos;s documentation lacks.
+<h3 id="check">Check</h3><div class="column" style="--gap: 0;"><pre><code class="go">func Check(root string) ([]Problem, error)</code></pre></div><p>Check reads the module and reports what the discipline asks for and
+the source lacks: a package without a comment, an exported symbol
+without one, a package-level function with no example. A test asserts
+the list is empty; the strictness is the caller&apos;s — filter by Kind for
+the level a project keeps.
+<h3 id="checklinks">CheckLinks</h3><div class="column" style="--gap: 0;"><pre><code class="go">func CheckLinks(out string) ([]Problem, error)</code></pre></div><p>CheckLinks walks the built site and reports every relative link that
+names a file the site lacks.
+<h3 id="problem-string">Problem.String</h3><div class="column" style="--gap: 0;"><pre><code class="go">func (p Problem) String() string</code></pre></div><p>String reads &quot;package: kind name&quot;.
+<h3 id="site">Site</h3><div class="column" style="--gap: 0;"><pre><code class="go">type Site struct {
+	Pages		[]Page
+	Packages	[]Package
+}</code></pre></div><p>Site is what Build wrote.
+<h3 id="build">Build</h3><div class="column" style="--gap: 0;"><pre><code class="go">func Build(cfg Config) (Site, error)</code></pre></div><p>Build reads the module and writes the site. It answers the pages it
+wrote, so a test can look at them without reading the disk again.
+<h3 id="symbol">Symbol</h3><div class="column" style="--gap: 0;"><pre><code class="go">type Symbol struct {
+	Name	string
+	Sig	string	// the declaration as printed, bodies stripped
+	Doc	string
+}</code></pre></div><p>Symbol is one exported declaration: its printed signature and its comment.
+<h3 id="type">Type</h3><div class="column" style="--gap: 0;"><pre><code class="go">type Type struct {
+	Symbol
+	Funcs	[]Symbol	// constructors: functions returning the type
+	Methods	[]Symbol
+}</code></pre></div><p>Type is an exported type with the functions and methods that belong to it.
+<h2 id="examples">Examples</h2><h3 id="examplebuild">Build</h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
+
+import (
+	&#34;fmt&#34;
+	&#34;os&#34;
+
+	&#34;github.com/Deufel/sitegen&#34;
+)
+
+func main() {
+	out, _ := os.MkdirTemp(&#34;&#34;, &#34;site&#34;)
+	site, _ := sitegen.Build(sitegen.Config{Root: &#34;testdata/mod&#34;, Out: out, Title: &#34;thing&#34;})
+	for _, p := range site.Pages {
+		fmt.Println(p.Path, &#34;—&#34;, p.Title)
+	}
+}</code></pre></div><small>Output</small><div class="column" style="--gap: 0;"><pre><code>index.html — thing
+guide/start.html — Getting started
+pkg/thing.html — thing</code></pre></div><h3 id="examplecheck">Check</h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
+
+import (
+	&#34;fmt&#34;
+
+	&#34;github.com/Deufel/sitegen&#34;
+)
+
+func main() {
+	problems, _ := sitegen.Check(&#34;testdata/mod&#34;)
+	for _, p := range problems {
+		fmt.Println(p)
+	}
+}</code></pre></div><small>Output</small><div class="column" style="--gap: 0;"><pre><code>example.com/thing/thing: symbol-doc Undocumented
+example.com/thing/thing: example Undocumented</code></pre></div><h3 id="examplechecklinks">CheckLinks</h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
+
+import (
+	&#34;fmt&#34;
+	&#34;os&#34;
+
+	&#34;github.com/Deufel/sitegen&#34;
+)
+
+func main() {
+	out, _ := os.MkdirTemp(&#34;&#34;, &#34;site&#34;)
+	_, _ = sitegen.Build(sitegen.Config{Root: &#34;testdata/mod&#34;, Out: out})
+	problems, _ := sitegen.CheckLinks(out)
+	fmt.Println(len(problems), &#34;broken links&#34;)
+}</code></pre></div><small>Output</small><div class="column" style="--gap: 0;"><pre><code>0 broken links</code></pre></div><h3 id="exampledochtml">DocHTML</h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
+
+import (
+	&#34;fmt&#34;
+
+	&#34;github.com/Deufel/sitegen&#34;
+)
+
+func main() {
+	fmt.Println(sitegen.DocHTML(&#34;Add answers a plus b.\n\n# Why\n\nBecause.&#34;))
+}</code></pre></div><small>Output</small><div class="column" style="--gap: 0;"><pre><code>&lt;p&gt;Add answers a plus b.
+&lt;h3 id=&#34;hdr-Why&#34;&gt;Why&lt;/h3&gt;
+&lt;p&gt;Because.</code></pre></div><h3 id="examplemarkdown">Markdown</h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
+
+import (
+	&#34;fmt&#34;
+
+	&#34;github.com/Deufel/sitegen&#34;
+)
+
+func main() {
+	fmt.Print(sitegen.Markdown(&#34;## Start\n\nA *word*.\n&#34;))
+}</code></pre></div><small>Output</small><div class="column" style="--gap: 0;"><pre><code>&lt;h2 id=&#34;start&#34;&gt;Start&lt;/h2&gt;
+&lt;p&gt;A &lt;em&gt;word&lt;/em&gt;.&lt;/p&gt;</code></pre></div><h3 id="examplemust">Must</h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
+
+import (
+	&#34;fmt&#34;
+	&#34;strings&#34;
+
+	&#34;github.com/Deufel/sitegen&#34;
+)
+
+func main() {
+	err := sitegen.Must([]sitegen.Problem{{Package: &#34;p&#34;, Kind: &#34;example&#34;, Name: &#34;Run&#34;}}, nil)
+	fmt.Println(strings.Split(err.Error(), &#34;\n&#34;)[0])
+}</code></pre></div><small>Output</small><div class="column" style="--gap: 0;"><pre><code>sitegen: 1 problems</code></pre></div><h3 id="examplepackages">Packages</h3><div class="column" style="--gap: 0;"><pre><code class="go">package main
+
+import (
+	&#34;fmt&#34;
+
+	&#34;github.com/Deufel/sitegen&#34;
+)
+
+func main() {
+	pkgs, _ := sitegen.Packages(&#34;testdata/mod&#34;)
+	for _, p := range pkgs {
+		fmt.Println(p.ImportPath, &#34;—&#34;, p.Synopsis, &#34;—&#34;, len(p.Funcs), &#34;functions,&#34;, len(p.Examples), &#34;examples&#34;)
+	}
+}</code></pre></div><small>Output</small><div class="column" style="--gap: 0;"><pre><code>example.com/thing/thing — Package thing adds numbers. — 2 functions, 2 examples</code></pre></div>
+		</section>
+	</main>
+	<aside class="pg-aside desktop"><nav class="toc column" aria-label="On this page" style="--gap: 0; --type: -1;"><small class="rail-head">On this page</small><a href="#overview">Overview</a><a href="#constants">Constants</a><a href="#functions">Functions</a><a href="#types">Types</a><a href="#examples">Examples</a></nav></aside><footer class="pg-main-footer spread" style="--type: -1;"><span></span><span><a href="../pkg/cmd-sitegen.html">cmd/sitegen →</a></span></footer>
+</div>
+<script src="https://cdn.jsdelivr.net/gh/Deufel/system-css@v0.6.0/static/highlight.js"></script>
+</body>
+</html>
