@@ -150,12 +150,28 @@ func Build(cfg Config) (Site, error) {
 			entries = append(entries, e)
 		}
 	}
+	// THE SEARCH INDEX, once: title · kind · href from the root · where
+	type hit struct {
+		T, K, H, W string
+	}
+	var index []hit
+	for _, e := range entries {
+		h := e.Page
+		if e.Anchor != "" {
+			h += "#" + e.Anchor
+		}
+		index = append(index, hit{e.Title, e.Kind, h, e.Where})
+	}
+	ib, _ := json.Marshal(index)
+	if err := os.WriteFile(filepath.Join(cfg.Out, "search.json"), ib, 0o644); err != nil {
+		return Site{}, err
+	}
 	for i := range pages {
 		out := filepath.Join(cfg.Out, filepath.FromSlash(pages[i].Path))
 		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return Site{}, err
 		}
-		if err := os.WriteFile(out, []byte(shell(cfg, pages, entries, &pages[i])), 0o644); err != nil {
+		if err := os.WriteFile(out, []byte(shell(cfg, pages, &pages[i])), 0o644); err != nil {
 			return Site{}, err
 		}
 	}
@@ -353,13 +369,6 @@ func packagePage(cfg Config, p Package) Page {
 	return Page{Path: path + ".html", Title: title, Section: "pkg", Body: b.String(), Index: ix.String(), Entries: entries}
 }
 
-// searchText — an entry's haystack as a JS string literal (json), escaped
-// for the attribute it sits in.
-func searchText(e Entry) string {
-	b, _ := json.Marshal(strings.ToLower(e.Title + " " + e.Kind + " " + e.Where))
-	return htmlesc.EscapeString(string(b))
-}
-
 func anchor(name string) string {
 	return strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(name, ".", "-"), " ", "-"))
 }
@@ -431,7 +440,7 @@ const (
 // on wide screens and a left drawer on a phone, the page's own index on
 // the n3 rail (a package's symbols by kind, a markdown page's headings),
 // the measure, previous and next.
-func shell(cfg Config, pages []Page, entries []Entry, pg *Page) string {
+func shell(cfg Config, pages []Page, pg *Page) string {
 	root := strings.Repeat("../", strings.Count(pg.Path, "/"))
 	var siblings []*Page
 	for i := range pages {
@@ -493,24 +502,16 @@ func shell(cfg Config, pages []Page, entries []Entry, pg *Page) string {
 	if cfg.Tagline != "" {
 		tagline = `<small class="tablet desktop" style="--fg: -0.55;">` + htmlesc.EscapeString(cfg.Tagline) + `</small>`
 	}
-	// THE SEARCH (the ds_docs_demo pattern, on the engine): every entry of
-	// the site pre-rendered in one dialog, shown by a Datastar expression
-	// over the query, ordered by how well it matches — no server, no index
-	// file, no client list rendering
-	var hits strings.Builder
-	for _, e := range entries {
-		link := href(pg.Path, e.Page)
-		if e.Anchor != "" {
-			link += "#" + e.Anchor
-		}
-		hay := searchText(e)
-		hits.WriteString(`<a class="nav-item" href="` + htmlesc.EscapeString(link) + `" data-show="hit(` + hay + `, $q)" data-style:order="-rank(` + hay + `, $q)" style="display: none;"><span>` + htmlesc.EscapeString(e.Title) + `</span><small style="--fg: -0.55; margin-inline-start: auto;">` + htmlesc.EscapeString(e.Kind+" · "+e.Where) + `</small></a>`)
-	}
+	// THE SEARCH (the ds_docs_demo pattern, on the engine): one index file
+	// for the whole site, fetched when the dialog first opens; Datastar
+	// holds the query and runs the effect that lists the hits, ranked by
+	// how well they match — no server, and the index is one file however
+	// many pages carry the dialog
 	search := `<button type="button" class="icon" aria-label="Search" title="Search (/)" onclick="openSearch()">` + iconSearch + `</button>`
-	searchDialog := `<dialog id="site-search" class="modal glass" closedby="any" aria-label="Search" data-signals="{q: ''}" data-on:keydown__window="evt.key === '/' && !el.open && (evt.preventDefault(), openSearch())">
+	searchDialog := `<dialog id="site-search" class="modal glass" closedby="any" aria-label="Search" data-signals="{q: ''}" data-on:keydown__window="evt.key === '/' && !el.open && (evt.preventDefault(), openSearch())" data-effect="renderHits($q)">
 		<div class="column" style="--gap: 0.5lh;">
 			<label class="search-box">` + iconSearch + `<input type="search" placeholder="Search…" data-bind:q autocomplete="off"/><kbd>esc</kbd></label>
-			<div class="column scroll-y" data-show="$q.trim().length > 0" style="--gap: 0; max-block-size: 60vh; display: none;">` + hits.String() + `</div>
+			<div id="site-hits" class="column scroll-y" style="--gap: 0; max-block-size: 60vh;"></div>
 		</div>
 	</dialog>`
 	// the theme toggle: light ↔ dark on the root, remembered in storage
@@ -532,12 +533,27 @@ func shell(cfg Config, pages []Page, entries []Entry, pg *Page) string {
 <script>
 // the stored theme before first paint (the interstitial frame is pre-CSS)
 (function () { try { var t = localStorage.getItem('ui.theme'); if (t) document.documentElement.setAttribute('data-ui-theme', t) } catch (e) {} })();
-function openSearch() { var d = document.getElementById('site-search'); d.showModal(); d.querySelector('input').focus() }
+var siteIndex = null, siteRoot = '` + root + `';
+function openSearch() {
+  var d = document.getElementById('site-search'); d.showModal(); d.querySelector('input').focus();
+  if (!siteIndex) fetch(siteRoot + 'search.json').then(function (r) { return r.json() }).then(function (ix) {
+    siteIndex = ix.map(function (e) { e.hay = (e.T + ' ' + e.K + ' ' + e.W).toLowerCase(); return e }); renderHits(d.querySelector('input').value)
+  })
+}
 // the search: every term of the query somewhere in the entry's text; the
 // rank counts terms at a word start, so "run" lists Run before Rerun
 function terms(q) { return q.toLowerCase().trim().split(/\s+/).filter(Boolean) }
 function hit(h, q) { var t = terms(q); return t.length > 0 && t.every(function (x) { return h.indexOf(x) >= 0 }) }
 function rank(h, q) { return terms(q).reduce(function (n, x) { return n + (h.indexOf(x) === 0 || h.indexOf(' ' + x) >= 0 || h.indexOf('.' + x) >= 0 ? 2 : 1) }, 0) }
+function esc(s) { return s.replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] }) }
+function renderHits(q) {
+  var box = document.getElementById('site-hits'); if (!box) return;
+  if (!siteIndex || !q || !q.trim()) { box.innerHTML = ''; return }
+  var hits = siteIndex.filter(function (e) { return hit(e.hay, q) }).map(function (e) { return { e: e, r: rank(e.hay, q) } })
+    .sort(function (a, b) { return b.r - a.r || a.e.T.localeCompare(b.e.T) }).slice(0, 60);
+  box.innerHTML = hits.map(function (h) { return '<a class="nav-item" href="' + esc(siteRoot + h.e.H) + '"><span>' + esc(h.e.T) + '</span><small style="--fg: -0.55; margin-inline-start: auto;">' + esc(h.e.K + ' · ' + h.e.W) + '</small></a>' }).join('')
+    || '<small style="--fg: -0.55;">No match.</small>'
+}
 function toggleTheme() {
   var h = document.documentElement, dark = h.getAttribute('data-ui-theme') === 'dark' || (!h.getAttribute('data-ui-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
   var t = dark ? 'light' : 'dark'; h.setAttribute('data-ui-theme', t); try { localStorage.setItem('ui.theme', t) } catch (e) {}

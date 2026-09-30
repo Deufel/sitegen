@@ -35,6 +35,10 @@ func TestBuildFromSource(t *testing.T) {
 	if err := Must(CheckLinks(out)); err != nil {
 		t.Fatal(err)
 	}
+	ix, err := os.ReadFile(filepath.Join(out, "search.json"))
+	if err != nil || !strings.Contains(string(ix), `"T":"Counter.Inc","K":"method","H":"pkg/thing.html#counter-inc","W":"thing"`) {
+		t.Fatalf("the search index: %v %s", err, ix)
+	}
 }
 
 func TestCheckReportsTheGaps(t *testing.T) {
