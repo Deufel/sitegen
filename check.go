@@ -80,6 +80,7 @@ func Check(root string) ([]Problem, error) {
 }
 
 var hrefRe = regexp.MustCompile(`href="([^"#]+)(#[^"]*)?"`)
+var scriptRe = regexp.MustCompile(`(?s)<script[^>]*>.*?</script>`)
 
 // CheckLinks walks the built site and reports every relative link that
 // names a file the site lacks.
@@ -93,7 +94,8 @@ func CheckLinks(out string) ([]Problem, error) {
 		if err != nil {
 			return err
 		}
-		for _, m := range hrefRe.FindAllStringSubmatch(string(b), -1) {
+		// a script's own strings are not links
+		for _, m := range hrefRe.FindAllStringSubmatch(scriptRe.ReplaceAllString(string(b), ""), -1) {
 			target := m[1]
 			if strings.Contains(target, "://") || strings.HasPrefix(target, "mailto:") {
 				continue
