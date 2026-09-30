@@ -247,14 +247,13 @@ func packagePage(p Package) Page {
 			}
 		}
 	}
-	name := p.ImportPath[strings.LastIndex(p.ImportPath, "/")+1:]
 	path := "pkg/" + strings.ReplaceAll(strings.Trim(p.Dir, "/"), "/", "-")
 	if p.Dir == "" {
-		path = "pkg/" + name
+		path = "pkg/" + p.ImportPath[strings.LastIndex(p.ImportPath, "/")+1:]
 	}
 	title := p.Name
 	if p.Name == "main" {
-		title = name // a command is known by its directory
+		title = filepath.ToSlash(p.Dir) // a command is known by its directory (cmd/migrate)
 	}
 	return Page{Path: path + ".html", Title: title, Section: "pkg", Body: b.String()}
 }
